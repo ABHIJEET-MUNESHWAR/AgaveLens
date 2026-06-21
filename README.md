@@ -20,6 +20,31 @@ structured tracing, Prometheus metrics, and a full test + benchmark suite.
 
 ---
 
+## Table of Contents
+
+- [Why this design](#why-this-design)
+- [Architecture](#architecture)
+  - [Ingest → aggregate pipeline](#ingest--aggregate-pipeline)
+  - [Component details](#component-details)
+  - [Architecture flows](#architecture-flows)
+- [Quick start](#quick-start)
+  - [`analyze` — real output](#analyze--real-output)
+- [GraphQL API](#graphql-api)
+  - [Ingest a batch](#ingest-a-batch)
+  - [Query analytics](#query-analytics)
+- [Performance & the parallel crossover](#performance--the-parallel-crossover)
+- [Profiling & flame graph](#profiling--flame-graph)
+- [Resilience model](#resilience-model)
+- [Observability](#observability)
+- [CLI](#cli)
+- [Development](#development)
+  - [Test results](#test-results)
+  - [Docker](#docker)
+- [Status & limitations](#status--limitations)
+- [License](#license)
+
+---
+
 ## Why this design
 
 | Decision | Rationale |
@@ -415,6 +440,37 @@ cargo bench -p agavelens-node          # criterion: parallel vs serial aggregate
   in every crate.
 - The benchmark compares the rayon parallel aggregator against the serial path at 100k and 1M
   samples (1,500-validator fleet) with per-element throughput — see the performance section.
+
+### Test results
+
+Latest `cargo test --workspace --all-features` run (Rust 1.89.0) — **68 passed, 0 failed, 0 ignored**:
+
+| Suite | Tests | Result |
+|---|---:|:--|
+| `agavelens-types` (unit) | 22 | ok |
+| `agavelens-core` (unit) | 22 | ok |
+| `agavelens-infra` (unit) | 10 | ok |
+| `agavelens-api` (unit) | 5 | ok |
+| `agavelens-node` (unit) | 9 | ok |
+| Doc-tests (5 crates) | 0 | ok |
+| **Total** | **68** | **ok** |
+
+<details>
+<summary>Raw <code>cargo test</code> summary</summary>
+
+```text
+   Running unittests src/lib.rs (agavelens_types)
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+   Running unittests src/lib.rs (agavelens_core)
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+   Running unittests src/lib.rs (agavelens_infra)
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+   Running unittests src/lib.rs (agavelens_api)
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+   Running unittests src/lib.rs (agavelens_node)
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+</details>
 
 ### Docker
 
