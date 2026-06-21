@@ -30,7 +30,13 @@ pub async fn run_analyze(args: AnalyzeArgs) -> Result<()> {
     let snapshot = engine.snapshot().await?;
     let elapsed = started.elapsed();
 
-    print_report(&snapshot, args.validators, args.skip_rate, args.top, elapsed);
+    print_report(
+        &snapshot,
+        args.validators,
+        args.skip_rate,
+        args.top,
+        elapsed,
+    );
 
     if let Some(epoch) = args.epoch {
         if let Some(summary) = engine.epoch_summary(Epoch(epoch)).await? {
@@ -83,7 +89,10 @@ fn print_report(
     );
     println!(
         "  slot time ms     : p50 {}  p90 {}  p99 {}  max {}",
-        snapshot.slot_time.p50, snapshot.slot_time.p90, snapshot.slot_time.p99, snapshot.slot_time.max
+        snapshot.slot_time.p50,
+        snapshot.slot_time.p90,
+        snapshot.slot_time.p99,
+        snapshot.slot_time.max
     );
     println!(
         "  vote latency ms  : p50 {}  p90 {}  p99 {}  max {}",
@@ -97,7 +106,10 @@ fn print_report(
         "worst {} validators by skip rate:",
         top.min(snapshot.per_validator.len())
     );
-    println!("  {:<10}  {:>8}  {:>9}  {:>10}  {:>10}", "validator", "led", "skip", "slot p50", "vote p99");
+    println!(
+        "  {:<10}  {:>8}  {:>9}  {:>10}  {:>10}",
+        "validator", "led", "skip", "slot p50", "vote p99"
+    );
     for r in snapshot.worst_validators(top) {
         println!(
             "  {:<10}  {:>8}  {:>8.2}%  {:>9}  {:>10}",

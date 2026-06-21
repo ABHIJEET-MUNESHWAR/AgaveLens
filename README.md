@@ -84,6 +84,114 @@ snapshot ◀── spawn_blocking( rayon aggregate ) ◀── repo.all()  read
              per-validator reports (into_par_iter) + fleet percentiles (par_sort)
 ```
 
+### Component details
+
+Every component below maps to a box in the diagram. Dependencies only ever point *inward*
+(`node → api / infra / core → types`); each crate carries `#![forbid(unsafe_code)]`.
+
+#### `agavelens-types` — domain vocabulary (zero I/O)
+
+| Module | Key items | Responsibility |
+|---|---|---|
+| `ids.rs` | `Slot`, `Epoch`, `ValidatorId` | Validated newtypes. `ValidatorId::new` rejects empty/oversized strings; `Slot::epoch(slots_per_epoch)` derives the epoch. Illegal ids are unrepresentable. |
+| `sample.rs` | `SlotSample` | The atomic ingest unit — slot, leader, slot-time, vote-latency, skip flag, optional epoch. The constructor range-checks every field. |
+| `stats.rs` | `Percentiles`, `SkipStats` | `Percentiles::from_sorted` reduces a pre-sorted slice to p50/p90/p99/max/mean — the type the parallel sorts feed. |
+| `report.rs` | `ValidatorReport`, `AnalyticsSnapshot`, `EpochSummary` | Immutable aggregation outputs returned over GraphQL. |
+| `error.rs` | `TypesError` | Typed validation errors, each carrying a stable `.code()`. |
+
+#### `agavelens-core` — engine, ports & guards (inside the hexagon)
+
+| Module | Key items | Responsibility |
+|---|---|---|
+| `ports.rs` | `SampleRepository`, `Clock` | The hexagonal ports the core depends on; adapters live in `infra`. |
+| `aggregate.rs` | `aggregate()`, `group()`, `Bucket`, `report_for`, `summarize_epoch` | The **rayon hot path**. `group()` is a serial linear pass into per-validator `Bucket`s; the sort-heavy percentile phase parallelises (`into_par_iter`, `par_sort_unstable`). Pure and deterministic. |
+| `engine.rs` | `AnalyticsEngine` | Orchestrates guard → repo → aggregate and wraps `aggregate()` in `spawn_blocking`. |
+| `guard.rs` | `RateLimiter`, batch guard | Token-bucket ingest limiter + batch-size cap on a pluggable `Clock`. |
+| `config.rs` | `AnalyticsConfig` | All tunables: `max_samples`, `max_batch`, ingest capacity/refill, `parallel_threshold`. |
+| `error.rs` | `CoreError` | `BatchTooLarge`, `Throttled`, `InvalidSample`, … each mapped to a GraphQL error code. |
+
+#### `agavelens-infra` — adapters (outside the hexagon)
+
+| Module | Key items | Responsibility |
+|---|---|---|
+| `repo.rs` | `MemorySampleRepository` | Bounded `VecDeque` ring (oldest-first eviction) implementing `SampleRepository`; memory bounded by construction. |
+| `generator.rs` | `SampleGenerator` | Deterministic synthetic telemetry (no `rand`) for `analyze`, benches and tests. |
+
+#### `agavelens-api` — GraphQL surface
+
+| Module | Key items | Responsibility |
+|---|---|---|
+| `schema.rs` | schema builder | Assembles the schema and applies `limit_depth(12)` + `limit_complexity(256)`. |
+| `query.rs` | `QueryRoot` | `sampleCount`, `skipRate`, `snapshot`, `worstValidators`, `validatorReport`, `epochSummary`. |
+| `mutation.rs` | `MutationRoot` | `ingestSamples` — the only write path. |
+| `types.rs` | GraphQL I/O objects | `SampleInput` plus percentile/report output objects mapping domain types to the wire. |
+
+#### `agavelens-node` — composition root (binary)
+
+| Module | Key items | Responsibility |
+|---|---|---|
+| `main.rs` | CLI entry | Parses `serve` / `analyze` via `clap`. |
+| `config.rs` | node config | Merges CLI/env into `AnalyticsConfig`. |
+| `startup.rs` | axum wiring | Builds engine + schema, mounts `/graphql` + `/metrics`, graceful shutdown. |
+| `telemetry.rs` | observability | `tracing` (text/JSON) + Prometheus recorder. |
+| `analyze.rs` | `analyze` job | One-shot offline aggregation report (no server). |
+
+### Architecture flows
+
+Five end-to-end flows exercise the system; each names the real modules/functions on the path.
+
+**1 · Ingest flow** (write — `mutation ingestSamples`)
+
+```mermaid
+flowchart LR
+  C[GraphQL client] -->|ingestSamples| M[api mutation]
+  M --> E[core engine ingest]
+  E --> G1{batch size ok}
+  G1 -- no --> RJ1[BatchTooLarge]
+  G1 -- yes --> G2{rate limit ok}
+  G2 -- no --> RJ2[Throttled]
+  G2 -- yes --> V[SlotSample validation]
+  V --> R[infra repo append bounded ring]
+  R --> MX[(samples_ingested_total)]
+```
+
+Untrusted volume passes the batch-size guard, then the token-bucket rate limiter, then newtype
+validation, and is appended to the bounded ring (oldest-first eviction). Every rejection is a
+typed `CoreError` surfaced as a coded GraphQL error and counted in
+`agavelens_batches_rejected_total{reason}`.
+
+**2 · Snapshot / aggregate flow** (read — `query snapshot` / `worstValidators`)
+
+```mermaid
+flowchart LR
+  Q[api query] --> S[core engine snapshot]
+  S --> RA[repo all clone]
+  RA --> SB[spawn_blocking]
+  SB --> AG[aggregate]
+  AG --> GR[group into buckets serial]
+  GR --> PV[per-validator reports into_par_iter]
+  GR --> FP[fleet percentiles par_sort]
+  PV --> SN[AnalyticsSnapshot]
+  FP --> SN
+  SN --> Q
+```
+
+The engine snapshots the ring, hands it to `spawn_blocking` (so Tokio workers stay free), and
+`aggregate()` runs: a cache-friendly **serial** `group()` into per-validator buckets, then the
+CPU-bound **parallel** percentile phase. Above `parallel_threshold` (500k) rayon is used; below
+it the identical code path runs serially.
+
+**3 · Targeted query flows** — `validatorReport(validator)` calls `aggregate::report_for`;
+`epochSummary(epoch)` calls `summarize_epoch`; `sampleCount` / `skipRate` are O(n) reads over the
+ring. All are read-only and hold the store lock only long enough to clone the working set.
+
+**4 · `analyze` CLI flow** (offline) — `node::analyze` drives `SampleGenerator::generate` →
+`engine.ingest` → `aggregate()` → formatted report. No server, no network: the same core path
+the API uses, measured for the throughput numbers above.
+
+**5 · Bootstrap / serve flow** — `main` → `telemetry::init` → build `AnalyticsEngine` + schema →
+`startup` mounts the axum routes → serve until SIGINT/SIGTERM triggers graceful shutdown.
+
 ---
 
 ## Quick start
@@ -197,6 +305,41 @@ an honest, measured tuning decision rather than "parallel everywhere".
 ```bash
 cargo bench -p agavelens-node          # reproduce the table above
 ```
+
+---
+
+## Profiling & flame graph
+
+The aggregation hot path is profiled in-process with the [`pprof`](https://github.com/tikv/pprof-rs)
+sampling profiler wired into the criterion bench — **no `perf`, root, or kernel tuning required**
+(it works inside WSL2/containers where `perf` usually does not). A `SIGPROF` timer samples the
+call stack at 1 kHz and [`inferno`](https://github.com/jonhoo/inferno) renders the SVG.
+
+[![AgaveLens aggregate flame graph](docs/flamegraph.svg)](docs/flamegraph.svg)
+
+> The inline image is a snapshot — open [`docs/flamegraph.svg`](docs/flamegraph.svg) directly for
+> the interactive, zoomable version.
+
+Regenerate it any time:
+
+```bash
+cargo bench -p agavelens-node --bench aggregate_bench -- --profile-time 10 'parallel/1000000'
+cp target/criterion/aggregate/parallel/1000000/profile/flamegraph.svg docs/flamegraph.svg
+```
+
+**Reading the graph** (1M samples, 1,500 validators, parallel path; width = share of on-CPU
+samples). `agavelens_core::aggregate::aggregate` dominates and splits into the two stacks the
+design predicts:
+
+- **`group()` — serial.** A linear pass building per-validator `Bucket`s. The visible
+  `ValidatorId::{hash,eq,clone}` frames are the `HashMap` keying cost — exactly why grouping is
+  *not* parallelised (a concurrent map-merge measured slower).
+- **`Bucket::into_report` → `Percentiles::from_sorted` — parallel.** The CPU-bound sorts
+  (`par_sort_unstable`, `sort_by`, `small_sort`) fan out across the `rayon` worker frames
+  (`MapFolder::consume_iter`, `StackJob::execute`) — this is where multi-core scaling comes from.
+
+The picture confirms the headline decision — *group serially, parallelise the sorts* — and shows
+the `HashMap` keying and the percentile sorts as the two real cost centres.
 
 ---
 

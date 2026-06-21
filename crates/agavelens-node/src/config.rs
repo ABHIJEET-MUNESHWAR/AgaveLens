@@ -7,7 +7,12 @@ use clap::{Args, Parser, Subcommand};
 #[command(name = "agavelens-node", version, about, long_about = None)]
 pub struct Cli {
     /// Emit logs as JSON instead of human-readable text.
-    #[arg(long, global = true, env = "AGAVELENS_LOG_JSON", default_value_t = false)]
+    #[arg(
+        long,
+        global = true,
+        env = "AGAVELENS_LOG_JSON",
+        default_value_t = false
+    )]
     pub log_json: bool,
 
     /// Subcommand to run.

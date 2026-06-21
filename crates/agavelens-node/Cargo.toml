@@ -47,3 +47,4 @@ tokio = { workspace = true }
 [dev-dependencies]
 tower = { workspace = true }
 criterion = { workspace = true }
+pprof = { workspace = true }

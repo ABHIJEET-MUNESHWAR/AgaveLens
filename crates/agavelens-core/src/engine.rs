@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
-use agavelens_types::{AnalyticsSnapshot, Epoch, EpochSummary, SlotSample, ValidatorId, ValidatorReport};
+use agavelens_types::{
+    AnalyticsSnapshot, Epoch, EpochSummary, SlotSample, ValidatorId, ValidatorReport,
+};
 
 use crate::aggregate::{aggregate, report_for, summarize_epoch};
 use crate::config::AnalyticsConfig;
@@ -249,7 +251,10 @@ mod tests {
             ..AnalyticsConfig::default()
         };
         let engine = engine_with(repo, config);
-        assert!(engine.ingest_batch(vec![sample(1, "a", false)]).await.is_ok());
+        assert!(engine
+            .ingest_batch(vec![sample(1, "a", false)])
+            .await
+            .is_ok());
         let err = engine
             .ingest_batch(vec![sample(2, "b", false)])
             .await
@@ -262,13 +267,20 @@ mod tests {
         let repo = Arc::new(FakeRepo::new(2));
         let engine = engine_with(repo, AnalyticsConfig::default());
         engine
-            .ingest_batch(vec![sample(1, "a", false), sample(2, "b", false), sample(3, "c", false)])
+            .ingest_batch(vec![
+                sample(1, "a", false),
+                sample(2, "b", false),
+                sample(3, "c", false),
+            ])
             .await
             .unwrap();
         assert_eq!(engine.sample_count().await.unwrap(), 2);
         let snap = engine.snapshot().await.unwrap();
         // oldest (slot 1, "a") evicted
-        assert!(snap.per_validator.iter().all(|r| r.validator.as_str() != "a"));
+        assert!(snap
+            .per_validator
+            .iter()
+            .all(|r| r.validator.as_str() != "a"));
     }
 
     #[tokio::test]

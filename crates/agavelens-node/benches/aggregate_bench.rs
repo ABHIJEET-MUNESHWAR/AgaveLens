@@ -2,9 +2,18 @@
 //!
 //! Compares the `rayon` parallel path against the serial path across input
 //! sizes, reporting per-element throughput.
+//!
+//! A flame graph of the hot path can be generated with the bundled `pprof`
+//! sampling profiler (no `perf`/root required):
+//!
+//! ```text
+//! cargo bench --bench aggregate_bench -- --profile-time 10 'parallel/1000000'
+//! # -> target/criterion/aggregate/parallel/1000000/profile/flamegraph.svg
+//! ```
 
 use chrono::Utc;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use pprof::criterion::{Output, PProfProfiler};
 
 use agavelens_core::aggregate;
 use agavelens_infra::SampleGenerator;
@@ -29,5 +38,9 @@ fn bench_aggregate(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_aggregate);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().with_profiler(PProfProfiler::new(1_000, Output::Flamegraph(None)));
+    targets = bench_aggregate
+}
 criterion_main!(benches);

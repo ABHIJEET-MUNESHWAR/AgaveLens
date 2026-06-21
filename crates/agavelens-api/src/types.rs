@@ -5,9 +5,7 @@ use async_graphql::{InputObject, SimpleObject};
 use chrono::{DateTime, Utc};
 
 use agavelens_core::IngestSummary;
-use agavelens_types::{
-    AnalyticsSnapshot, EpochSummary, Percentiles, ValidatorReport,
-};
+use agavelens_types::{AnalyticsSnapshot, EpochSummary, Percentiles, ValidatorReport};
 
 /// One slot observation submitted for ingest.
 #[derive(Debug, Clone, InputObject)]
