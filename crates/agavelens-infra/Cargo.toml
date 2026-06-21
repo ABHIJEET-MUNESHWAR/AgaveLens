@@ -1,0 +1,19 @@
+[package]
+name = "agavelens-infra"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+authors = ["Abhijeet Ashok Muneshwar <openingknots@gmail.com>"]
+repository = "https://github.com/ABHIJEET-MUNESHWAR/AgaveLens"
+description = "Adapters for AgaveLens: a bounded in-memory sample repository and a deterministic synthetic validator-telemetry generator."
+
+[dependencies]
+agavelens-types = { workspace = true }
+agavelens-core = { workspace = true }
+async-trait = { workspace = true }
+parking_lot = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

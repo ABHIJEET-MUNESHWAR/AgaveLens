@@ -1,0 +1,11 @@
+# Prometheus scrape config for the AgaveLens metrics stack.
+# Enable with: docker compose --profile monitoring up
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: agavelens
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["node:8080"]

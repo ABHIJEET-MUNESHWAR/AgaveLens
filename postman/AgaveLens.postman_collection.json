@@ -1,0 +1,123 @@
+{
+  "info": {
+    "name": "AgaveLens API",
+    "description": "GraphQL analytics API for AgaveLens, a validator-internals analytics node. Ingest slot-level validator telemetry and query rayon-aggregated skip-rate / slot-time / vote-latency percentiles. This is a read-mostly analytics surface: queries + an ingest mutation, no subscriptions. Set the `baseUrl` collection variable (default http://localhost:8080). Start the server with `agavelens-node serve`. Ingest is rate-limited (token bucket) and batch-size guarded (max 10,000 samples per call); the sample store is bounded (default 200,000) and evicts oldest-first.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" }
+  ],
+  "item": [
+    {
+      "name": "GraphQL",
+      "item": [
+        {
+          "name": "ingestSamples (mutation)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation Ingest($samples: [SlotSampleInput!]!) {\n  ingestSamples(samples: $samples) {\n    accepted\n    totalStored\n  }\n}",
+                "variables": "{\n  \"samples\": [\n    { \"slot\": 10, \"leader\": \"val-aaa\", \"slotTimeMs\": 420, \"voteLatencyMs\": 130, \"skipped\": false },\n    { \"slot\": 11, \"leader\": \"val-aaa\", \"slotTimeMs\": 500, \"voteLatencyMs\": 160, \"skipped\": true },\n    { \"slot\": 12, \"leader\": \"val-bbb\", \"slotTimeMs\": 450, \"voteLatencyMs\": 140, \"skipped\": false }\n  ]\n}"
+              }
+            },
+            "description": "Ingest a batch of slot samples. `epoch` is optional — when omitted it is derived from the slot using the configured slots-per-epoch. A batch larger than the configured max (10,000) errors with code `batch_too_large`; exceeding the ingest rate limit errors with code `throttled`. Empty leader ids are rejected (`empty_validator`)."
+          }
+        },
+        {
+          "name": "snapshot (query)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query {\n  apiVersion\n  sampleCount\n  skipRate\n  snapshot {\n    generatedAt\n    totalSamples\n    validatorsSeen\n    observed\n    skipped\n    skipRate\n    slotTime { count min p50 p90 p99 max mean }\n    voteLatency { count min p50 p90 p99 max mean }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "description": "Whole-fleet analytics snapshot. Percentiles are computed in parallel with rayon inside a spawn_blocking task so the async runtime is never blocked."
+          }
+        },
+        {
+          "name": "worstValidators (query)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Worst($limit: Int!) {\n  worstValidators(limit: $limit) {\n    validator\n    slotsLed\n    slotsSkipped\n    skipRate\n    slotTime { p50 p99 }\n    voteLatency { p50 p99 }\n  }\n}",
+                "variables": "{\n  \"limit\": 10\n}"
+              }
+            },
+            "description": "Validators ranked by skip rate (worst first), tie-broken by slots led desc then validator id asc."
+          }
+        },
+        {
+          "name": "validatorReport (query)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Report($validator: String!) {\n  validatorReport(validator: $validator) {\n    validator\n    slotsLed\n    slotsSkipped\n    skipRate\n    slotTime { count min p50 p90 p99 max mean }\n    voteLatency { count min p50 p90 p99 max mean }\n  }\n}",
+                "variables": "{\n  \"validator\": \"val-aaa\"\n}"
+              }
+            },
+            "description": "Per-validator analytics. Returns null when the validator has no recorded samples."
+          }
+        },
+        {
+          "name": "epochSummary (query)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Epoch($epoch: Int!) {\n  epochSummary(epoch: $epoch) {\n    epoch\n    samples\n    skipRate\n    slotTimeP50\n    slotTimeP99\n    voteLatencyP50\n    voteLatencyP99\n  }\n}",
+                "variables": "{\n  \"epoch\": 0\n}"
+              }
+            },
+            "description": "Compact summary for a single epoch. Returns null when the epoch has no samples."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operational",
+      "item": [
+        {
+          "name": "GET /health/live",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health/live", "host": ["{{baseUrl}}"], "path": ["health", "live"] }
+          }
+        },
+        {
+          "name": "GET /health/ready",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
+          }
+        },
+        {
+          "name": "GET /metrics (Prometheus)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/metrics", "host": ["{{baseUrl}}"], "path": ["metrics"] }
+          }
+        }
+      ]
+    }
+  ]
+}

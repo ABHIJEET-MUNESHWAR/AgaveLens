@@ -1,0 +1,24 @@
+[package]
+name = "agavelens-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+authors = ["Abhijeet Ashok Muneshwar <openingknots@gmail.com>"]
+repository = "https://github.com/ABHIJEET-MUNESHWAR/AgaveLens"
+description = "Analytics engine for AgaveLens: ports, configuration, lightweight resilience guards, and the rayon-parallel batch aggregator that turns slot samples into reports."
+
+[dependencies]
+agavelens-types = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+rayon = { workspace = true }
+parking_lot = { workspace = true }
+tokio = { workspace = true }
+metrics = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+mockall = { workspace = true }

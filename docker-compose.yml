@@ -1,0 +1,23 @@
+services:
+  node:
+    build: .
+    environment:
+      AGAVELENS_HOST: 0.0.0.0
+      AGAVELENS_PORT: 8080
+      AGAVELENS_LOG_JSON: "true"
+      AGAVELENS_MAX_SAMPLES: "200000"
+      RUST_LOG: info
+    ports:
+      - "8080:8080"
+    command: ["serve"]
+
+  # Optional metrics stack: `docker compose --profile monitoring up`.
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["monitoring"]
+    depends_on:
+      - node
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
