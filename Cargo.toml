@@ -62,7 +62,7 @@ chrono = { version = "0.4", features = ["serde"] }
 criterion = { version = "0.5" }
 proptest = "1.5"
 mockall = "0.12"
-pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
+pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
 
 # --- internal crates ---
 agavelens-types = { path = "crates/agavelens-types" }
