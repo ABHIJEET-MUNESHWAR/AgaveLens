@@ -18,6 +18,25 @@ structured tracing, Prometheus metrics, and a full test + benchmark suite.
 > analytics** member: it deliberately has **no streaming subscription** (unlike the other four)
 > and headlines **CPU-bound parallelism** rather than network I/O.
 
+[![CI](https://github.com/ABHIJEET-MUNESHWAR/AgaveLens/actions/workflows/ci.yml/badge.svg)](https://github.com/ABHIJEET-MUNESHWAR/AgaveLens/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/Rust-1.89-CE412B?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![Edition](https://img.shields.io/badge/edition-2021-CE412B)](https://doc.rust-lang.org/edition-guide/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](Cargo.toml)
+
+[![clippy](https://img.shields.io/badge/clippy-zero%20warnings-4B8BBE)](.github/workflows/ci.yml)
+[![rustfmt](https://img.shields.io/badge/style-rustfmt-000000)](.github/workflows/ci.yml)
+[![security audit](https://img.shields.io/badge/security-cargo--audit-success)](.github/workflows/ci.yml)
+[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success)](https://github.com/rust-secure-code/safety-dance)
+
+[![Tokio](https://img.shields.io/badge/async-tokio-1A1A2E)](https://tokio.rs)
+[![GraphQL](https://img.shields.io/badge/API-GraphQL-E10098?logo=graphql&logoColor=white)](https://async-graphql.github.io)
+[![Docker](https://img.shields.io/badge/container-Docker-2496ED?logo=docker&logoColor=white)](Dockerfile)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](#)
+
+[![Last commit](https://img.shields.io/github/last-commit/ABHIJEET-MUNESHWAR/AgaveLens)](https://github.com/ABHIJEET-MUNESHWAR/AgaveLens/commits)
+[![Issues](https://img.shields.io/github/issues/ABHIJEET-MUNESHWAR/AgaveLens)](https://github.com/ABHIJEET-MUNESHWAR/AgaveLens/issues)
+[![Stars](https://img.shields.io/github/stars/ABHIJEET-MUNESHWAR/AgaveLens?style=social)](https://github.com/ABHIJEET-MUNESHWAR/AgaveLens/stargazers)
+
 ---
 
 ## Table of Contents
